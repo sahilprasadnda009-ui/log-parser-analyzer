@@ -12,7 +12,7 @@ Python
 Regular Expressions (Regex)
 Collections (Counter)
 
-What I Learned 
+What I Learned :
 File handling in Python
 Regular expressions
 Data analysis using Python collections
