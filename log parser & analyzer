@@ -1,0 +1,103 @@
+import re
+from collections import Counter
+
+# Regex pattern to parse auth.log entries into structured fields
+AUTH_PATTERN = re.compile(
+    r"""^(?P<month>\w+)\s+(?P<day>\d+)\s+(?P<time>\d+:\d+:\d+)\s+(?P<host>\S+)\s+(?P<process>\S+)(?:
+\[(?P<pid>\d+)\]
+)?:\s+(?P<message>.*)$"""
+)
+
+def parse_log_line(line):
+    """
+        Parse a single auth.log line and return a dictionary
+        containing the extracted fields.
+        """
+    match = AUTH_PATTERN.match(line)
+    if match:
+              return match.groupdict()
+    return None
+
+def analyze_logs(file_path):
+    """
+        Analyze authentication logs and generate a summary
+        of login activity, targeted users, and IP addresses.
+        """
+    parsed_logs=[]
+
+    # Read and parse all log entries
+    with open(file_path,"r") as f:
+        for line in f:
+            entry = parse_log_line(line)
+            if entry:
+                parsed_logs.append(entry)
+
+    # Identify failed authentication attempts
+    failures = [log for log in parsed_logs
+                if any(keyword in log['message'].lower()
+                       for keyword in [
+                        "authentication failure",
+                        "failed login",
+                        "invalid user",
+                         "failed password",
+
+                ]
+                       )
+    ]
+
+    # Identify successful logins
+    successes = [log for log in parsed_logs
+                    if "accepted password" in log['message'].lower()
+]
+
+    # Extract IPv4 addresses from log messages
+    ip_pattern = re.compile(
+       r'(\d+\.\d+\.\d+\.\d+)'
+    )
+    ip = []
+    for log in parsed_logs:
+        match = ip_pattern.search(log['message'])
+        if match:
+            ip.append(match.group(1))
+   # # Count occurrences of each IP address
+    ip_counts = Counter(ip)
+
+    # Extract usernames from log messages
+    user_pattern = re.compile( r'user=(\w+) |for user (\w+) | user (\w+)' )
+    users = []
+    for log in parsed_logs:
+        match = user_pattern.search(log['message'])
+        if match:
+            # Get the first non-empty regex group
+            for group in match.groups():
+                if group :
+                    users.append(group)
+                break
+    print(users)
+
+    # Count username occurrences
+    user_counter = Counter(users)
+
+    # Display summary statistics
+    print("\n authentication summary")
+    print(f"successful logins: {len(successes)}")
+    print("failed logins: ",len(failures))
+
+    # Display targeted usernames
+    print("\n Targeted users " )
+    for user,counts in user_counter.items():
+      print(f"{user}: {counts} attempts")
+    print("\n suspicious ips (>50 attempts)")
+
+    # Displays ips that exceeds the threshold
+    for ip,counts in ip_counts.items():
+        if counts> 50:
+            print(f"{ip}: {counts} attempts ")
+
+    print(ip_counts)
+    print(user_counter)
+
+
+if __name__ == "__main__":
+    log_file = "auth.log"
+    analyze_logs(log_file)
